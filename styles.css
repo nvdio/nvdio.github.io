@@ -1,0 +1,34 @@
+.header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.header__text {
+  max-width: 720px;
+}
+
+.header__logo img {
+  display: block;
+  max-height: 56px; /* adjust if you want it bigger/smaller */
+  width: auto;
+}
+
+/* Optional: stack on small screens */
+@media (max-width: 640px) {
+  .header__inner {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .header__logo img {
+    max-height: 40px;
+  }
+}
+
+
+  .btn {
+    width: 100%;
+  }
+}
