@@ -1,63 +1,520 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Yahoo Finance 52-Week Summary</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yahoo Finance Stock Fetcher</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary-blue: #001220;
+            --secondary-blue: #0056b3;
+            --accent-blue: #0077ff;
+            --light-blue: #e6f2ff;
+            --text-light: #f8f9fa;
+            --text-gray: #adb5bd;
+            --success-green: #28a745;
+            --error-red: #dc3545;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+            color: var(--text-light);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-top: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #fff, var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-gray);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            align-items: end;
+        }
+
+        @media (max-width: 768px) {
+            .control-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        input {
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--text-light);
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(0, 119, 255, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(90deg, var(--accent-blue), #00a8ff);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 119, 255, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            height: fit-content;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 119, 255, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .example {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            background: rgba(40, 167, 69, 0.2);
+            border-left: 4px solid var(--success-green);
+        }
+
+        .status.error {
+            display: block;
+            background: rgba(220, 53, 69, 0.2);
+            border-left: 4px solid var(--error-red);
+        }
+
+        .status.info {
+            display: block;
+            background: rgba(23, 162, 184, 0.2);
+            border-left: 4px solid #17a2b8;
+        }
+
+        .data-output {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .positive {
+            color: var(--success-green);
+        }
+
+        .negative {
+            color: var(--error-red);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-cell {
+            color: var(--error-red);
+            font-style: italic;
+        }
+
+        .last-updated {
+            text-align: right;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: var(--text-gray);
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .ticker-examples {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .ticker-example {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .ticker-example:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
 </head>
 <body>
-  <header class="header">
-    <div class="shell">
-      <h1>Yahoo Finance 52-Week Summary</h1>
-      <p class="lede">Enter one or more tickers, separated by commas, to fetch the latest price alongside the 52-week low and high pulled directly from Yahoo Finance's chart API.</p>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-chart-line"></i> Yahoo Finance 52-Week Stock Fetcher</h1>
+            <p class="subtitle">Get current prices, 52-week highs/lows, and performance metrics for any stock</p>
+        </header>
+
+        <main>
+            <section class="card control-panel">
+                <div class="input-group">
+                    <label for="tickerInput"><i class="fas fa-list"></i> Enter Stock Tickers (comma-separated)</label>
+                    <input type="text" id="tickerInput" placeholder="e.g., AAPL, MSFT, GOOGL, TSLA, META">
+                    <div class="ticker-examples">
+                        <div class="ticker-example" data-tickers="AAPL, MSFT, GOOGL">Tech Giants</div>
+                        <div class="ticker-example" data-tickers="TSLA, F, GM">Auto Industry</div>
+                        <div class="ticker-example" data-tickers="JPM, BAC, WFC">Banking</div>
+                        <div class="ticker-example" data-tickers="AMZN, WMT, TGT">Retail</div>
+                    </div>
+                </div>
+                <button id="fetchButton" class="btn">
+                    <i class="fas fa-download"></i> Fetch Stock Data
+                </button>
+            </section>
+
+            <div id="statusMessage" class="status"></div>
+
+            <section class="card data-output">
+                <h2><i class="fas fa-table"></i> Stock Data</h2>
+                <div class="table-container">
+                    <table id="stockTable">
+                        <thead>
+                            <tr>
+                                <th>Ticker Symbol</th>
+                                <th>Current Price</th>
+                                <th>52-Week Low</th>
+                                <th>52-Week High</th>
+                                <th>Distance from 52-Week Low</th>
+                                <th>Distance from 52-Week High</th>
+                                <th>Percentage to 52-Week Low</th>
+                                <th>Date of 52-Week Low</th>
+                                <th>Date of 52-Week High</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Data will be inserted here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="last-updated" id="lastUpdated"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Data provided by Yahoo Finance API | This tool is for educational purposes only</p>
+        </footer>
     </div>
-  </header>
 
-  <main class="shell">
-    <section class="panel">
-      <form id="ticker-form" class="form" autocomplete="off">
-        <label for="tickers" class="form__label">Tickers</label>
-        <div class="form__controls">
-          <input type="text" id="tickers" name="tickers" placeholder="e.g. AAPL, MSFT, AMZN" required />
-          <button type="submit" class="btn">Fetch data</button>
-        </div>
-        <p class="form__hint">Separate multiple tickers with commas. Data uses a 1-year range with daily candles.</p>
-      </form>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tickerInput = document.getElementById('tickerInput');
+            const fetchButton = document.getElementById('fetchButton');
+            const tableBody = document.getElementById('tableBody');
+            const statusMessage = document.getElementById('statusMessage');
+            const lastUpdated = document.getElementById('lastUpdated');
+            const tickerExamples = document.querySelectorAll('.ticker-example');
 
-      <div id="status" class="status" aria-live="polite"></div>
+            // Add event listeners to example tickers
+            tickerExamples.forEach(example => {
+                example.addEventListener('click', function() {
+                    tickerInput.value = this.getAttribute('data-tickers');
+                });
+            });
 
-      <div class="table-wrapper">
-        <table id="results-table" class="table" aria-live="polite">
-          <thead>
-            <tr>
-              <th scope="col">Symbol</th>
-              <th scope="col">As of</th>
-              <th scope="col">Price</th>
-              <th scope="col">52W Low (date)</th>
-              <th scope="col">52W High (date)</th>
-              <th scope="col">Dist. from Low</th>
-              <th scope="col">Dist. from High</th>
-              <th scope="col">% Above Low</th>
-            </tr>
-          </thead>
-          <tbody id="results-body">
-            <tr class="placeholder">
-              <td colspan="8">Results will appear here after you fetch data.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+            // Fetch stock data when button is clicked
+            fetchButton.addEventListener('click', fetchStockData);
 
-  <footer class="footer">
-    <div class="shell">
-      <p class="footer__note">Powered by the public Yahoo Finance chart endpoint. Calculations mirror the Access/VBA logic for 52-week highs and lows.</p>
-    </div>
+            // Allow pressing Enter to fetch data
+            tickerInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    fetchStockData();
+                }
+            });
+
+            async function fetchStockData() {
+                const tickers = tickerInput.value.trim();
+                
+                if (!tickers) {
+                    showStatus('Please enter at least one stock ticker.', 'error');
+                    return;
+                }
+
+                // Clear previous data
+                tableBody.innerHTML = '';
+                showStatus('Fetching stock data...', 'info');
+                fetchButton.disabled = true;
+                fetchButton.innerHTML = '<div class="loading"></div> Fetching...';
+
+                const tickerArray = tickers.split(',').map(t => t.trim()).filter(t => t !== '');
+                let successCount = 0;
+
+                // Process each ticker
+                for (const ticker of tickerArray) {
+                    try {
+                        const stockData = await getStockData(ticker);
+                        if (stockData && stockData.currentPrice) {
+                            addRowToTable(ticker, stockData);
+                            successCount++;
+                        } else {
+                            addErrorRow(ticker);
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching data for ${ticker}:`, error);
+                        addErrorRow(ticker);
+                    }
+                }
+
+                // Update status
+                if (successCount > 0) {
+                    showStatus(`Data fetch complete. ${successCount} of ${tickerArray.length} tickers processed successfully.`, 'success');
+                } else {
+                    showStatus('Failed to fetch data for any tickers. Please check your symbols and try again.', 'error');
+                }
+
+                // Update last updated time
+                const now = new Date();
+                lastUpdated.textContent = `Last updated: ${now.toLocaleString()}`;
+
+                // Re-enable button
+                fetchButton.disabled = false;
+                fetchButton.innerHTML = '<i class="fas fa-download"></i> Fetch Stock Data';
+            }
+
+            async function getStockData(ticker) {
+                // Using a proxy to avoid CORS issues
+                const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1y&interval=1d`;
+                
+                try {
+                    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl));
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+                        throw new Error('Invalid data format from API');
+                    }
+                    
+                    const result = data.chart.result[0];
+                    const meta = result.meta;
+                    const indicators = result.indicators;
+                    
+                    // Get current price
+                    const currentPrice = meta.regularMarketPrice;
+                    
+                    // Get 52-week low and high
+                    const quotes = indicators.quote[0];
+                    const lows = quotes.low.filter(val => val !== null);
+                    const highs = quotes.high.filter(val => val !== null);
+                    const timestamps = result.timestamp;
+                    
+                    const weekLow52 = Math.min(...lows);
+                    const weekHigh52 = Math.max(...highs);
+                    
+                    // Find dates for lows and highs
+                    const lowIndex = quotes.low.indexOf(weekLow52);
+                    const highIndex = quotes.high.indexOf(weekHigh52);
+                    
+                    const lowDate = lowIndex !== -1 ? new Date(timestamps[lowIndex] * 1000) : new Date();
+                    const highDate = highIndex !== -1 ? new Date(timestamps[highIndex] * 1000) : new Date();
+                    
+                    return {
+                        currentPrice,
+                        weekLow52,
+                        weekHigh52,
+                        lowDate,
+                        highDate
+                    };
+                } catch (error) {
+                    console.error(`Error fetching data for ${ticker}:`, error);
+                    return null;
+                }
+            }
+
+            function addRowToTable(ticker, data) {
+                const row = document.createElement('tr');
+                
+                // Calculate derived values
+                const distanceFromLow = data.weekLow52 > 0 ? (data.currentPrice - data.weekLow52) / data.weekLow52 : null;
+                const distanceFromHigh = data.weekHigh52 > 0 ? (data.currentPrice - data.weekHigh52) / data.weekHigh52 : null;
+                const percentageToLow = data.weekLow52 > 0 ? (data.currentPrice / data.weekLow52) - 1 : null;
+                
+                // Format values
+                const formatCurrency = (value) => {
+                    return value !== null ? `$${value.toFixed(2)}` : 'N/A';
+                };
+                
+                const formatPercent = (value) => {
+                    if (value === null) return 'N/A';
+                    const className = value >= 0 ? 'positive' : 'negative';
+                    return `<span class="${className}">${(value * 100).toFixed(2)}%</span>`;
+                };
+                
+                const formatDate = (date) => {
+                    return date.toLocaleDateString();
+                };
+                
+                const formatNumber = (value) => {
+                    return value !== null ? value.toFixed(4) : 'N/A';
+                };
+                
+                row.innerHTML = `
+                    <td><strong>${ticker}</strong></td>
+                    <td>${formatCurrency(data.currentPrice)}</td>
+                    <td>${formatCurrency(data.weekLow52)}</td>
+                    <td>${formatCurrency(data.weekHigh52)}</td>
+                    <td>${formatNumber(distanceFromLow)}</td>
+                    <td>${formatNumber(distanceFromHigh)}</td>
+                    <td>${formatPercent(percentageToLow)}</td>
+                    <td>${formatDate(data.lowDate)}</td>
+                    <td>${formatDate(data.highDate)}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            }
+
+            function addErrorRow(ticker) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${ticker}</strong></td>
+                    <td class="error-cell">Error</td>
+                    <td class="error-cell">Error</td>
+                    <td class="error-cell">Error</td>
+                    <td class="error-cell">Error</td>
+                    <td class="error-cell">Error</td>
+                    <td class="error-cell">Error</td>
+                    <td class="error-cell">Error</td>
+                    <td class="error-cell">Error</td>
+                `;
+                tableBody.appendChild(row);
+            }
+
+            function showStatus(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.className = 'status ' + type;
+            }
+        });
+    </script>
+</body>
+</html>
   </footer>
 
   <script src="script.js"></script>
