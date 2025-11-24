@@ -294,7 +294,7 @@
             <div id="statusMessage" class="status"></div>
 
             <section class="card data-output">
-                <h2><i class="fas fa-table"></i> &nbsp;Stock Data</h2>
+                <h2><i class="fas fa-table"></i> Stock Data</h2>
                 <div class="table-container">
                     <table id="stockTable">
                         <thead>
@@ -320,7 +320,8 @@
         </main>
 
         <footer>
-            <p>Data provided by NVDIO | This tool is for educational purposes only</p>
+            <p>Data provided by Alpha Vantage API | API Key: ZGNV8YBI0VDVBKHT</p>
+            <p>Free tier: 5 requests per minute, 500 requests per day | This tool is for educational purposes only</p>
         </footer>
     </div>
 
@@ -332,6 +333,15 @@
             const statusMessage = document.getElementById('statusMessage');
             const lastUpdated = document.getElementById('lastUpdated');
             const tickerExamples = document.querySelectorAll('.ticker-example');
+            const rateLimitProgress = document.getElementById('rateLimitProgress');
+            
+            // Alpha Vantage API Key
+            const API_KEY = 'ZGNV8YBI0VDVBKHT';
+            
+            // Rate limiting variables
+            let requestCount = 0;
+            let lastResetTime = Date.now();
+            const REQUESTS_PER_MINUTE = 5;
 
             // Add event listeners to example tickers
             tickerExamples.forEach(example => {
@@ -350,11 +360,41 @@
                 }
             });
 
+            // Update rate limit display
+            function updateRateLimitDisplay() {
+                const now = Date.now();
+                const timeSinceReset = now - lastResetTime;
+                
+                // Reset counter if more than a minute has passed
+                if (timeSinceReset > 60000) {
+                    requestCount = 0;
+                    lastResetTime = now;
+                }
+                
+                const percentage = (requestCount / REQUESTS_PER_MINUTE) * 100;
+                rateLimitProgress.style.width = `${percentage}%`;
+                
+                // Change color based on usage
+                if (percentage >= 80) {
+                    rateLimitProgress.style.background = 'linear-gradient(90deg, #dc3545, #ff6b6b)';
+                } else if (percentage >= 60) {
+                    rateLimitProgress.style.background = 'linear-gradient(90deg, #ffc107, #ffd54f)';
+                } else {
+                    rateLimitProgress.style.background = 'linear-gradient(90deg, #28a745, #0077ff)';
+                }
+            }
+
             async function fetchStockData() {
                 const tickers = tickerInput.value.trim();
                 
                 if (!tickers) {
                     showStatus('Please enter at least one stock ticker.', 'error');
+                    return;
+                }
+
+                // Check rate limit
+                if (requestCount >= REQUESTS_PER_MINUTE) {
+                    showStatus('Rate limit exceeded. Please wait a minute before making more requests.', 'error');
                     return;
                 }
 
@@ -370,16 +410,29 @@
                 // Process each ticker
                 for (const ticker of tickerArray) {
                     try {
+                        // Check rate limit before each request
+                        if (requestCount >= REQUESTS_PER_MINUTE) {
+                            showStatus('Rate limit reached. Some data may be incomplete.', 'warning');
+                            break;
+                        }
+
                         const stockData = await getStockData(ticker);
                         if (stockData && stockData.currentPrice) {
                             addRowToTable(ticker, stockData);
                             successCount++;
                         } else {
-                            addErrorRow(ticker);
+                            addErrorRow(ticker, 'No data');
                         }
+                        
+                        // Increment request count
+                        requestCount++;
+                        updateRateLimitDisplay();
+                        
+                        // Add small delay between requests to be respectful to API
+                        await new Promise(resolve => setTimeout(resolve, 200));
                     } catch (error) {
                         console.error(`Error fetching data for ${ticker}:`, error);
-                        addErrorRow(ticker);
+                        addErrorRow(ticker, 'API Error');
                     }
                 }
 
@@ -387,7 +440,7 @@
                 if (successCount > 0) {
                     showStatus(`Data fetch complete. ${successCount} of ${tickerArray.length} tickers processed successfully.`, 'success');
                 } else {
-                    showStatus('Failed to fetch data for any tickers. Please check your symbols and try again.', 'error');
+                    showStatus('Failed to fetch data for any tickers. Please check your symbols.', 'error');
                 }
 
                 // Update last updated time
@@ -400,12 +453,10 @@
             }
 
             async function getStockData(ticker) {
-                // Using a proxy to avoid CORS issues
-                const proxyUrl = 'https://api.allorigins.win/raw?url=';
-                const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1y&interval=1d`;
+                const apiUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${API_KEY}&outputsize=full`;
                 
                 try {
-                    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl));
+                    const response = await fetch(apiUrl);
                     
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -413,43 +464,62 @@
                     
                     const data = await response.json();
                     
-                    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
-                        throw new Error('Invalid data format from API');
+                    // Check for API error messages
+                    if (data['Error Message']) {
+                        throw new Error('Invalid symbol: ' + ticker);
                     }
                     
-                    const result = data.chart.result[0];
-                    const meta = result.meta;
-                    const indicators = result.indicators;
+                    if (data['Note']) {
+                        throw new Error('API limit reached');
+                    }
                     
-                    // Get current price
-                    const currentPrice = meta.regularMarketPrice;
+                    const timeSeries = data['Time Series (Daily)'];
+                    if (!timeSeries) {
+                        throw new Error('No data available for symbol: ' + ticker);
+                    }
                     
-                    // Get 52-week low and high
-                    const quotes = indicators.quote[0];
-                    const lows = quotes.low.filter(val => val !== null);
-                    const highs = quotes.high.filter(val => val !== null);
-                    const timestamps = result.timestamp;
+                    // Get all dates and sort them
+                    const dates = Object.keys(timeSeries).sort();
+                    const oneYearAgo = new Date();
+                    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
                     
-                    const weekLow52 = Math.min(...lows);
-                    const weekHigh52 = Math.max(...highs);
+                    // Filter data from the last year
+                    const recentData = dates.filter(date => new Date(date) >= oneYearAgo);
                     
-                    // Find dates for lows and highs
-                    const lowIndex = quotes.low.indexOf(weekLow52);
-                    const highIndex = quotes.high.indexOf(weekHigh52);
+                    if (recentData.length === 0) {
+                        throw new Error('Insufficient historical data for symbol: ' + ticker);
+                    }
                     
-                    const lowDate = lowIndex !== -1 ? new Date(timestamps[lowIndex] * 1000) : new Date();
-                    const highDate = highIndex !== -1 ? new Date(timestamps[highIndex] * 1000) : new Date();
+                    // Extract prices
+                    const prices = recentData.map(date => ({
+                        date: date,
+                        high: parseFloat(timeSeries[date]['2. high']),
+                        low: parseFloat(timeSeries[date]['3. low']),
+                        close: parseFloat(timeSeries[date]['4. close'])
+                    }));
+                    
+                    // Calculate 52-week high/low
+                    const weekLow52 = Math.min(...prices.map(p => p.low));
+                    const weekHigh52 = Math.max(...prices.map(p => p.high));
+                    
+                    // Find dates for highs/lows
+                    const lowData = prices.find(p => p.low === weekLow52);
+                    const highData = prices.find(p => p.high === weekHigh52);
+                    
+                    // Current price is the latest close
+                    const currentPrice = prices[prices.length - 1].close;
                     
                     return {
                         currentPrice,
                         weekLow52,
                         weekHigh52,
-                        lowDate,
-                        highDate
+                        lowDate: new Date(lowData.date),
+                        highDate: new Date(highData.date)
                     };
+                    
                 } catch (error) {
                     console.error(`Error fetching data for ${ticker}:`, error);
-                    return null;
+                    throw error;
                 }
             }
 
@@ -495,18 +565,18 @@
                 tableBody.appendChild(row);
             }
 
-            function addErrorRow(ticker) {
+            function addErrorRow(ticker, errorType = 'Error') {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${ticker}</strong></td>
-                    <td class="error-cell">Error</td>
-                    <td class="error-cell">Error</td>
-                    <td class="error-cell">Error</td>
-                    <td class="error-cell">Error</td>
-                    <td class="error-cell">Error</td>
-                    <td class="error-cell">Error</td>
-                    <td class="error-cell">Error</td>
-                    <td class="error-cell">Error</td>
+                    <td class="error-cell">${errorType}</td>
+                    <td class="error-cell">${errorType}</td>
+                    <td class="error-cell">${errorType}</td>
+                    <td class="error-cell">${errorType}</td>
+                    <td class="error-cell">${errorType}</td>
+                    <td class="error-cell">${errorType}</td>
+                    <td class="error-cell">${errorType}</td>
+                    <td class="error-cell">${errorType}</td>
                 `;
                 tableBody.appendChild(row);
             }
@@ -514,13 +584,18 @@
             function showStatus(message, type) {
                 statusMessage.textContent = message;
                 statusMessage.className = 'status ' + type;
+                
+                // Auto-hide success messages after 5 seconds
+                if (type === 'success') {
+                    setTimeout(() => {
+                        statusMessage.style.display = 'none';
+                    }, 5000);
+                }
             }
+
+            // Initialize rate limit display
+            updateRateLimitDisplay();
         });
     </script>
-</body>
-</html>
-  </footer>
-
-  <script src="script.js"></script>
 </body>
 </html>
